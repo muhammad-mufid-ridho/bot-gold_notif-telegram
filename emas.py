@@ -2,9 +2,10 @@ import os
 import requests
 
 # Ambil data dari Environment Variables (Keamanan)
-TOKEN = os.getenv("8458022961:AAE5wudtPWa-FiUBTaDqWUjvXogik5QZOfY")
-CHAT_ID = os.getenv("1519188290")
-GOLD_API_KEY = os.getenv("goldapi-1ne5dsmlvzlkzs-io")
+# Ini adalah LABEL yang nanti kamu buat di GitHub Secrets
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+GOLD_API_KEY = os.getenv("GOLD_API_KEY")
 
 def get_gold_data():
     url = "https://www.goldapi.io/api/XAU/IDR" # XAU = Emas, IDR = Rupiah
