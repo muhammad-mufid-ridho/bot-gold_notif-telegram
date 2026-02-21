@@ -1,57 +1,84 @@
 import os
 import requests
 
-# Ambil data dari Environment Variables (Keamanan)
-# Ini adalah LABEL yang nanti kamu buat di GitHub Secrets
+# Ambil data dari Environment Variables
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 GOLD_API_KEY = os.getenv("GOLD_API_KEY")
 
 def get_gold_data():
-    url = "https://www.goldapi.io/api/XAU/IDR" # XAU = Emas, IDR = Rupiah
-    headers = {"x-access-token": GOLD_API_KEY, "Content-Type": "application/json"}
+    url = "https://www.goldapi.io/api/XAU/IDR"
+    headers = {
+        "x-access-token": GOLD_API_KEY,
+        "Content-Type": "application/json"
+    }
     
-    response = requests.get(url, headers=headers)
-    data = response.json()
-    
-    # GoldAPI memberikan harga per Troy Ounce. Kita konversi ke Gram (1 Oz = 31.1g)
-    harga_per_gram = int(data['price'] / 31.1)
-    harga_kemarin = int(data['prev_close_price'] / 31.1)
-    
-    # Asumsi buyback rata-rata di Indonesia (selisih ~8% dari harga pasar)
-    # Kamu bisa menyesuaikan rumus ini jika punya sumber API buyback spesifik
-    harga_buyback = int(harga_per_gram * 0.92) 
-    
-    return harga_per_gram, harga_kemarin, harga_buyback
+    try:
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        
+        if 'price' not in data:
+            print("Gagal ambil data! Respon API:", data)
+            return None
+        
+        # Kalkulasi Harga
+        # 1 Troy Ounce = 31.1035 gram
+        harga_per_gram = int(data['price'] / 31.1035)
+        harga_kemarin = int(data['prev_close_price'] / 31.1035)
+        
+        # Estimasi harga buyback (umumnya selisih 8-10% di Indonesia)
+        harga_buyback = int(harga_per_gram * 0.92) 
+        
+        return {
+            "sekarang": harga_per_gram,
+            "kemarin": harga_kemarin,
+            "buyback": harga_buyback,
+            "persen_perubahan": data.get('chp', 0) # Persentase dari API
+        }
+    except Exception as e:
+        print(f"Error Koneksi: {e}")
+        return None
 
 def kirim_pesan():
-    sekarang, kemarin, buyback = get_gold_data()
+    d = get_gold_data()
     
-    # 1. Hitung Persentase
-    selisih_persen = ((sekarang - kemarin) / kemarin) * 100
+    if not d:
+        return
+
+    # 1. Logika Persentase (Kriteria 5%)
+    # Kita gunakan data perubahan harian dari API
+    persen = d['persen_perubahan']
     
-    # Logika 5%
-    if selisih_persen >= 5:
-        status_tren = f"Naik {selisih_persen:.2f}% 🔥 (Jual Sekarang)"
-    elif selisih_persen <= -5:
-        status_tren = f"Turun {abs(selisih_persen):.2f}% ❄️ (Beli Lagi!)"
+    if persen >= 5:
+        status_harga = f"Naik drastis {persen:.2f}% 🚀 (Jual Sekarang!)"
+    elif persen > 0:
+        status_harga = f"Naik {persen:.2f}% (Jangan Jual, Tunggu 5%)"
+    elif persen <= -5:
+        status_harga = f"Turun drastis {abs(persen):.2f}% 📉 (Waktunya Serok/Beli!)"
     else:
-        status_tren = f"{'Naik' if selisih_persen > 0 else 'Turun'} {abs(selisih_persen):.2f}% (Tunggu/Jangan Jual)"
+        status_harga = f"Turun {abs(persen):.2f}% (Jangan Jual)"
 
-    # 2. Selisih Buyback (Spread)
-    spread = sekarang - buyback
-    rekomendasi_bb = "Jual Sekarang (Spread Tipis)" if spread < 50000 else "Jangan Jual (Spread Lebar)"
+    # 2. Logika Selisih Buyback
+    selisih_bb = d['sekarang'] - d['buyback']
+    # Jika selisih tipis (misal < 50rb), biasanya momen bagus untuk jual
+    rekomendasi_bb = "Jual sekarang" if selisih_bb < 70000 else "Jangan jual"
 
-    teks = (
-        f"💰 *UPDATE HARGA EMAS HARI INI*\n\n"
-        f"💵 Harga: *Rp {sekarang:,}/gram*\n"
-        f"📈 Tren: {status_tren}\n"
-        f"🔄 Buyback: Rp {buyback:,}\n"
-        f"⚖️ Selisih BB: Rp {spread:,} => *{rekomendasi_bb}*"
+    pesan = (
+        f"🔔 *NOTIFIKASI HARGA EMAS*\n\n"
+        f"💰 Harga Sekarang: *Rp {d['sekarang']:,}/gram*\n"
+        f"📊 Tren: {status_harga}\n"
+        f"🔄 Harga Buyback: Rp {d['buyback']:,}\n"
+        f"⚖️ Selisih Buyback: Rp {selisih_bb:,} => *{rekomendasi_bb}*"
     )
 
-    api_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(api_url, data={"chat_id": CHAT_ID, "text": teks, "parse_mode": "Markdown"})
+    url_tele = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": pesan, "parse_mode": "Markdown"}
+    
+    res = requests.post(url_tele, data=payload)
+    if res.status_code == 200:
+        print("✅ Notifikasi berhasil dikirim!")
+    else:
+        print(f"❌ Gagal kirim Telegram: {res.text}")
 
 if __name__ == "__main__":
     kirim_pesan()
