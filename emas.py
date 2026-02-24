@@ -1,10 +1,13 @@
 import os
 import requests
+from dotenv import load_dotenv #
 
-# Ambil data dari Environment Variables (GitHub Secrets)
+# Perintah ini wajib ada untuk membaca file .env
+load_dotenv() 
+
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-GOLD_API_KEY = os.getenv("GOLD_API_KEY")
+GOLD_API_KEY = os.getenv("GOLD_API_KEY") # Sekarang variabel ini akan terisi
 
 def get_kurs_idr():
     """Mengambil kurs USD ke IDR terbaru secara gratis"""
