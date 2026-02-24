@@ -9,6 +9,10 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 GOLD_API_KEY = os.getenv("GOLD_API_KEY") # Sekarang variabel ini akan terisi
 
+print(f"DEBUG: Token terdeteksi: {'Ya' if TOKEN else 'Tidak'}")
+print(f"DEBUG: Chat ID terdeteksi: {'Ya' if CHAT_ID else 'Tidak'}")
+print(f"DEBUG: Gold API Key terdeteksi: {'Ya' if GOLD_API_KEY else 'Tidak'}")
+
 def get_kurs_idr():
     """Mengambil kurs USD ke IDR terbaru secara gratis"""
     try:
